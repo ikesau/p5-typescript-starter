@@ -35,13 +35,13 @@ class Eye {
     arc(0, -yOffset, this.diameter, this.diameter, (7 / 6) * PI, (11 / 6) * PI)
     arc(0, yOffset, this.diameter, this.diameter, (13 / 6) * PI, (5 / 6) * PI)
 
-    // pupil
     fill(0)
-    const translatedMouseX = mouseX - this.pos.x
-    const translatedMouseY = mouseY - this.pos.y
-    const pupilY = map(translatedMouseY, 0, windowHeight, 0, this.radius / 2)
-    const pupilX = map(translatedMouseX, 0, windowWidth, 0, this.radius / 2)
-    circle(pupilX, pupilY, this.radius / 1.5)
+    const pupil = createVector(mouseX, mouseY)
+      // translate to origin of eye
+      .sub(this.pos)
+      // set max magnitude to within the eye
+      .limit(this.radius / 2)
+    circle(pupil.x, pupil.y, this.radius / 1.3)
 
     pop()
   }
@@ -50,15 +50,24 @@ class Eye {
 function setup() {
   createCanvas(windowWidth, windowHeight)
   noStroke()
-
-  for (let i = 0; i < 10; i++) {
-    eyes.push(new Eye(random(windowWidth), random(windowHeight), 25))
+  const rowsAmount = 8
+  const columnsAmount = 8
+  for (let x = 1; x < columnsAmount; x++) {
+    for (let y = 1; y < rowsAmount; y++) {
+      eyes.push(
+        new Eye(
+          (x / columnsAmount) * windowWidth,
+          (y / rowsAmount) * windowHeight,
+          20
+        )
+      )
+    }
   }
 }
 
 function draw() {
   background(0)
-  eyes.forEach((eye) => eye.draw())
+  if (mouseIsPressed) eyes.forEach((eye) => eye.draw())
 }
 
 function windowResized() {}
