@@ -1,5 +1,8 @@
 let eyes: Eye[] = []
+const eyeWidth = 40
 let ripple: Ripple
+let scleraFills: [number, number, number][] = [[255, 255, 255]]
+let scleraFillIndex = 0
 
 class Eye {
   pos: p5.Vector
@@ -7,6 +10,7 @@ class Eye {
   height: number
   openPercentage: number
   isOpen: boolean
+  hasBeenClosed: boolean
 
   constructor(x: number, y: number, width: number) {
     this.pos = createVector(x, y)
@@ -19,12 +23,16 @@ class Eye {
     this.isOpen = isOpen
   }
 
+  setHasBeenClosed(hasBeenClosed: boolean) {
+    this.hasBeenClosed = hasBeenClosed
+  }
+
   draw() {
     if (!this.isOpen) return
     push()
     translate(this.pos.x, this.pos.y)
 
-    fill(255)
+    fill(scleraFills[scleraFillIndex])
     beginShape()
     vertex(-this.width, 0)
     bezierVertex(
@@ -53,9 +61,12 @@ class Eye {
       .limit(this.height)
     circle(pupil.x, pupil.y, this.width * 0.9)
 
-    const maxOpenPercentage = map(pupil.y, -this.height, this.height, 1, 0.6)
+    const maxOpenPercentage = this.hasBeenClosed
+      ? 0
+      : map(pupil.y, -this.height, this.height, 1, 0.6)
 
     // eyelid
+    stroke(0)
     if (this.isOpen) {
       this.openPercentage = lerp(this.openPercentage, maxOpenPercentage, 0.4)
     }
@@ -121,7 +132,6 @@ function createEyesOutOfNothingAndPutThemIntoABox() {
   eyes = []
   background(0)
 
-  const eyeWidth = 40
   const amount = floor(windowWidth / eyeWidth / 4)
   let xOff = windowWidth / amount / 2
   let yOff = windowHeight / amount / 2
@@ -152,7 +162,9 @@ class Ripple {
     this.radius += 3
     eyes.forEach((eye) => {
       if (p5.Vector.sub(this.pos, eye.pos).mag() < this.radius) {
-        eye.setIsOpen(true)
+        if (!eye.hasBeenClosed) {
+          eye.setIsOpen(true)
+        }
       }
     })
     if (this.radius > sqrt(sq(windowHeight) + sq(windowWidth))) {
@@ -173,7 +185,37 @@ function draw() {
 }
 
 function mousePressed() {
-  ripple = new Ripple(mouseX, mouseY)
+  if (!ripple) {
+    ripple = new Ripple(mouseX, mouseY)
+  }
+  if (ripple.isComplete) {
+    const eyeThatIsStillOpenDespiteEveryOpportunityYouHad = eyes.find(
+      (eye) => !eye.hasBeenClosed
+    )
+    if (!eyeThatIsStillOpenDespiteEveryOpportunityYouHad) {
+      createEyesOutOfNothingAndPutThemIntoABox()
+      ripple = new Ripple(mouseX, mouseY)
+    }
+  }
+  let clickedEye = eyes.find(
+    (eye) =>
+      p5.Vector.sub(eye.pos, createVector(mouseX, mouseY)).mag() < eyeWidth
+  )
+  if (clickedEye && clickedEye.isOpen) {
+    clickedEye.setHasBeenClosed(true)
+  }
+}
+
+function keyPressed() {
+  if (keyCode === RIGHT_ARROW) {
+    if (scleraFillIndex === scleraFills.length - 1) {
+      scleraFills.push([random(255), random(255), random(255)])
+    }
+    scleraFillIndex++
+  }
+  if (keyCode === LEFT_ARROW && scleraFillIndex !== 0) {
+    scleraFillIndex--
+  }
 }
 
 function windowResized() {
