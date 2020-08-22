@@ -10,7 +10,6 @@ class Eye {
   height: number
   openPercentage: number
   isOpen: boolean
-  hasBeenClosed: boolean
 
   constructor(x: number, y: number, width: number) {
     this.pos = createVector(x, y)
@@ -19,110 +18,28 @@ class Eye {
     this.openPercentage = 0
   }
 
-  setIsOpen(isOpen: boolean) {
-    this.isOpen = isOpen
-  }
-
-  setHasBeenClosed(hasBeenClosed: boolean) {
-    this.hasBeenClosed = hasBeenClosed
-  }
-
   draw() {
-    if (!this.isOpen) return
+    // Don't draw before the eye has opened or after it's closed
+    if (!this.isOpen && this.openPercentage < 0.01) return
+
+    const pupil = createVector(mouseX, mouseY).sub(this.pos).limit(this.height)
+    const maxOpenPercentage = map(pupil.y, -this.height, this.height, 1, 0.6)
+    this.openPercentage = lerp(this.openPercentage, this.isOpen ? maxOpenPercentage : 0, 0.4)
+    const topLidY = map(this.openPercentage, 0, 1, this.height * 0.5, -this.height)
+    const bottomLidY = map(this.openPercentage, 0, 1, this.height * 0.5, this.height)
+
     push()
     translate(this.pos.x, this.pos.y)
 
     fill(scleraFills[scleraFillIndex])
     beginShape()
     vertex(-this.width, 0)
-    bezierVertex(
-      -this.width / 2,
-      -this.height,
-      this.width / 2,
-      -this.height,
-      this.width,
-      0
-    )
-    bezierVertex(
-      this.width / 2,
-      this.height,
-      -this.width / 2,
-      this.height,
-      -this.width,
-      0
-    )
+    bezierVertex(-this.width / 2, topLidY, this.width / 2, topLidY, this.width, 0)
+    bezierVertex(this.width / 2, bottomLidY, -this.width / 2, bottomLidY, -this.width, 0)
     endShape()
 
     fill(0)
-    const pupil = createVector(mouseX, mouseY)
-      // translate to origin of eye
-      .sub(this.pos)
-      // set max magnitude to within the eye
-      .limit(this.height)
     circle(pupil.x, pupil.y, this.width * 0.9)
-
-    const maxOpenPercentage = this.hasBeenClosed
-      ? 0
-      : map(pupil.y, -this.height, this.height, 1, 0.6)
-
-    // eyelid
-    stroke(0)
-    if (this.isOpen) {
-      this.openPercentage = lerp(this.openPercentage, maxOpenPercentage, 0.4)
-    }
-    const topLidY = map(
-      this.openPercentage,
-      0,
-      1,
-      this.height * 0.5,
-      -this.height
-    )
-    scale(1, 1.1)
-    beginShape()
-    vertex(-this.width, 0)
-    bezierVertex(
-      -this.width / 2,
-      -this.height,
-      this.width / 2,
-      -this.height,
-      this.width,
-      0
-    )
-    bezierVertex(
-      this.width / 2,
-      topLidY,
-      -this.width / 2,
-      topLidY,
-      -this.width,
-      0
-    )
-    endShape()
-    const bottomLidY = map(
-      this.openPercentage,
-      0,
-      1,
-      this.height * 0.5,
-      this.height
-    )
-    beginShape()
-    vertex(-this.width, 0)
-    bezierVertex(
-      -this.width / 2,
-      bottomLidY,
-      this.width / 2,
-      bottomLidY,
-      this.width,
-      0
-    )
-    bezierVertex(
-      this.width / 2,
-      this.height,
-      -this.width / 2,
-      this.height,
-      -this.width,
-      0
-    )
-    endShape()
 
     pop()
   }
@@ -138,13 +55,7 @@ function createEyesOutOfNothingAndPutThemIntoABox() {
 
   for (let x = 0; x < amount; x++) {
     for (let y = 0; y < amount; y++) {
-      eyes.push(
-        new Eye(
-          (x * windowWidth) / amount + xOff,
-          (y * windowHeight) / amount + yOff,
-          eyeWidth
-        )
-      )
+      eyes.push(new Eye((x * windowWidth) / amount + xOff, (y * windowHeight) / amount + yOff, eyeWidth))
     }
   }
 }
@@ -162,8 +73,8 @@ class Ripple {
     this.radius += 3
     eyes.forEach((eye) => {
       if (p5.Vector.sub(this.pos, eye.pos).mag() < this.radius) {
-        if (!eye.hasBeenClosed) {
-          eye.setIsOpen(true)
+        if (!eye.isOpen && !eye.openPercentage) {
+          eye.isOpen = true
         }
       }
     })
@@ -180,6 +91,7 @@ function setup() {
 }
 
 function draw() {
+  background(0)
   eyes.forEach((eye) => eye.draw())
   if (ripple && !ripple.isComplete) ripple.expand()
 }
@@ -189,20 +101,15 @@ function mousePressed() {
     ripple = new Ripple(mouseX, mouseY)
   }
   if (ripple.isComplete) {
-    const eyeThatIsStillOpenDespiteEveryOpportunityYouHad = eyes.find(
-      (eye) => !eye.hasBeenClosed
-    )
+    const eyeThatIsStillOpenDespiteEveryOpportunityYouHad = eyes.find((eye) => eye.isOpen)
     if (!eyeThatIsStillOpenDespiteEveryOpportunityYouHad) {
       createEyesOutOfNothingAndPutThemIntoABox()
       ripple = new Ripple(mouseX, mouseY)
     }
   }
-  let clickedEye = eyes.find(
-    (eye) =>
-      p5.Vector.sub(eye.pos, createVector(mouseX, mouseY)).mag() < eyeWidth
-  )
+  let clickedEye = eyes.find((eye) => p5.Vector.sub(eye.pos, createVector(mouseX, mouseY)).mag() < eyeWidth)
   if (clickedEye && clickedEye.isOpen) {
-    clickedEye.setHasBeenClosed(true)
+    clickedEye.isOpen = false
   }
 }
 
